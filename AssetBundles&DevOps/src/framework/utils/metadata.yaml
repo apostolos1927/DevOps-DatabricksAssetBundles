@@ -1,0 +1,9 @@
+bronze_columns:
+  Id: LongType
+  FirstName: StringType
+  LastName: StringType
+
+silver_columns:
+  Id: LongType
+  Age: IntegerType
+  Location: StringType

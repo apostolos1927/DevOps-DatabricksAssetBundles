@@ -1,0 +1,43 @@
+# This is a Databricks asset bundle definition
+
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+
+bundle:
+  name: test_bundle
+  
+include:
+  - dab_templates/*.yaml
+
+ 
+# variables:
+#   name_prefix:
+#     default: demo_test
+#     description: Unique prefix for your resources
+#   env_name:
+#     default: dev
+#     description: Environment name
+
+ 
+
+workspace:
+  root_path:  /Shared/.bundle/${bundle.name}/${bundle.target}
+
+
+targets:
+  dev:
+  prd:
+
+ 
+artifacts:
+  default:
+    type: whl
+    build: poetry build
+    path: .
+
+ 
+
+# For passing wheel package to workspace
+
+sync:
+  include:
+    - ./dist/*.whl

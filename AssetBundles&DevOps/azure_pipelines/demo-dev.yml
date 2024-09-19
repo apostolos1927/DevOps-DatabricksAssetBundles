@@ -1,0 +1,132 @@
+---
+trigger:
+  batch: true
+  branches:
+    include:
+      - "*"
+  paths:
+    exclude:
+      - README.md
+      - LICENSE
+
+parameters:
+  - name: pool_type
+    displayName: Agent Pool Type
+    type: string
+    default: Azure Pipelines
+    values:
+      - Azure Pipelines
+      - VM Scale Set agent pool
+      - Self hosted agent pool
+  - name: name_prefix
+    displayName: Prefix for bundle resources naming
+    type: string
+    default: demo_test
+  - name: service_connection_name
+    displayName: Specify service connection name
+    default: service_connection_dev
+stages:
+  - stage: dev
+    displayName: Deploy to dev"
+    pool:
+      vmImage: ubuntu-20.04
+    variables:
+      - group: dev_variables
+    condition: |
+      eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    jobs:
+      - job: Initial_config
+        steps:
+          - task: AzureKeyVault@2
+            inputs:
+              azureSubscription: ${{ parameters.service_connection_name }}
+              KeyVaultName: $(key_vault_name)
+              SecretsFilter: "*"
+              RunAsPreJob: true
+          - script: |
+              python3 --version
+              sudo apt-get --assume-yes install python3-pip
+              sudo pip install poetry
+              export PATH="/home/AzDevOps/.local/bin:$PATH"
+              poetry -V
+            displayName: Installing poetry
+          - checkout: self
+            displayName: "Checkout & Build.Reason: $(Build.Reason) & Build.SourceBranchName:
+              $(Build.SourceBranchName)"
+          - script: |
+              python -m pip install requests
+              python -m pip install pytest
+              python -m pip install pyspark
+            displayName: Install dependencies
+          - script: >
+              sudo apt-get --assume-yes install zip
+
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+
+              databricks -v
+            displayName: Installing databricks CLI
+          - script: |
+              databricks bundle validate -t $(env_name) > validate.json
+              echo "Validation results:"
+              cat validate.json
+              rm validate.json
+              databricks bundle deploy -t $(env_name)
+              ls -la .
+              ls -la dist
+              databricks bundle run demo_pipeline -t $(env_name)
+            displayName: Validate bundle and deploy
+            env:
+              DATABRICKS_HOST: $(databricks-dev-url)
+              DATABRICKS_TOKEN: $(databricks-dev-token)
+  - stage: prd
+    displayName: Deploy to prod"
+    pool:
+      vmImage: ubuntu-20.04
+    variables:
+      - group: prd_variables
+    condition: |
+      eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    dependsOn: dev
+    jobs:
+      - job: Initial_config
+        steps:
+          - task: AzureKeyVault@2
+            inputs:
+              azureSubscription: ${{ parameters.service_connection_name }}
+              KeyVaultName: $(key_vault_name)
+              SecretsFilter: "*"
+              RunAsPreJob: true
+          - script: |
+              python3 --version
+              sudo apt-get --assume-yes install python3-pip
+              sudo pip install poetry
+              export PATH="/home/AzDevOps/.local/bin:$PATH"
+              poetry -V
+            displayName: Installing poetry
+          - checkout: self
+            displayName: "Checkout & Build.Reason: $(Build.Reason) & Build.SourceBranchName:
+              $(Build.SourceBranchName)"
+          - script: |
+              python -m pip install requests
+              python -m pip install pytest
+              python -m pip install pyspark
+            displayName: Install dependencies
+          - script: >
+              sudo apt-get --assume-yes install zip
+
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+              
+              databricks -v
+            displayName: Installing databricks CLI
+          - script: |
+              databricks bundle validate -t $(env_name) > validate.json
+              echo "Validation results:"
+              cat validate.json
+              rm validate.json
+              databricks bundle deploy -t $(env_name)
+              ls -la .
+              ls -la dist
+            displayName: Validate bundle and deploy
+            env:
+              DATABRICKS_HOST: $(databricks-prd-url)
+              DATABRICKS_TOKEN: $(databricks-prd-token)

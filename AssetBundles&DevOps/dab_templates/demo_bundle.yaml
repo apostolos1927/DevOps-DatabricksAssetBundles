@@ -1,0 +1,37 @@
+resources:
+  jobs:
+    demo_pipeline:
+      name: demo_pipeline
+      schedule:
+        quartz_cron_expression: 0 0 23 * * ?
+        timezone_id: America/New_York
+        pause_status: UNPAUSED
+      tasks:
+        - task_key: demo_bronze
+          notebook_task:
+            notebook_path: ${workspace.root_path}/files/notebooks/bronze/demo_bronze
+            source: WORKSPACE
+          job_cluster_key: demo_cluster
+          libraries:
+            - whl: /Workspace/${workspace.root_path}/files/dist/framework-0.0.1-py3-none-any.whl
+        - task_key: demo_silver
+          depends_on:
+            - task_key: demo_bronze
+          notebook_task:
+            notebook_path: ${workspace.root_path}/files/notebooks/silver/demo_silver
+            source: WORKSPACE
+          job_cluster_key: demo_cluster
+          libraries:
+            - whl: /Workspace/${workspace.root_path}/files/dist/framework-0.0.1-py3-none-any.whl
+      job_clusters:
+        - job_cluster_key: demo_cluster
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            spark_conf:
+              spark.memory.fraction: 0.8
+            node_type_id: Standard_DS3_v2
+            autoscale:
+              min_workers: 1
+              max_workers: 1
+            data_security_mode: SINGLE_USER
+            runtime_engine: PHOTON
